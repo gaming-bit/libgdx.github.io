@@ -1,0 +1,101 @@
+#include <SDL2/SDL.h>
+#include <iostream>
+
+const int SCREEN_WIDTH = 800;
+const int SCREEN_HEIGHT = 600;
+
+class Entity {
+public:
+    int x, y;
+    int health, maxHealth;
+
+    Entity(int x, int y, int maxHealth) : x(x), y(y), maxHealth(maxHealth), health(maxHealth) {}
+
+    void takeDamage(int dmg) {
+        health -= dmg;
+        if (health < 0) health = 0;
+    }
+
+    void heal(int hp) {
+        health += hp;
+        if (health > maxHealth) health = maxHealth;
+    }
+
+    void drawHealthBar(SDL_Renderer* renderer) {
+        int barWidth = 100;
+        SDL_Rect bg = { x, y - 10, barWidth, 10 };
+        SDL_Rect fg = { x, y - 10, (int)((float)health / maxHealth * barWidth), 10 };
+
+        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); // Red background
+        SDL_RenderFillRect(renderer, &bg);
+        SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255); // Green foreground
+        SDL_RenderFillRect(renderer, &fg);
+    }
+};
+
+int main(int argc, char* argv[]) {
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+        std::cout << "SDL failed to initialize: " << SDL_GetError() << std::endl;
+        return 1;
+    }
+
+    SDL_Window* window = SDL_CreateWindow("Battle Game", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, 0);
+    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+
+    Entity player(100, 300, 100);
+    Entity boss(500, 300, 150);
+
+    bool running = true;
+    SDL_Event event;
+
+    bool fireUnlocked = false;
+    bool lightningUnlocked = false;
+
+    while (running) {
+        // Handle input
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT)
+                running = false;
+
+            if (event.type == SDL_KEYDOWN) {
+                switch (event.key.keysym.sym) {
+                    case SDLK_SPACE: // Sword attack
+                        boss.takeDamage(10);
+                        break;
+                    case SDLK_f: // Fire attack
+                        if (fireUnlocked)
+                            boss.takeDamage(20);
+                        break;
+                    case SDLK_l: // Lightning attack
+                        if (lightningUnlocked)
+                            boss.takeDamage(30);
+                        break;
+                }
+            }
+        }
+
+        // Check unlock logic
+        if (boss.health <= 0) {
+            fireUnlocked = true;
+            lightningUnlocked = true;
+            // Example teleport: reset boss
+            boss = Entity(500, 300, 200);
+        }
+
+        // Draw scene
+        SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255); // Dark background
+        SDL_RenderClear(renderer);
+
+        // Draw health bars
+        player.drawHealthBar(renderer);
+        boss.drawHealthBar(renderer);
+
+        SDL_RenderPresent(renderer);
+        SDL_Delay(16); // ~60 FPS
+    }
+
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+    return 0;
+}
